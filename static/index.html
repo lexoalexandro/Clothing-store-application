@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>მაღაზია</title>
+<style>
+  /* Vintage palette: sepia paper, dark chocolate ink, burgundy, mustard, faded olive */
+  :root { --paper:#f3ead6; --card:#faf4e4; --ink:#2b2118; --mute:#6b5a45; --line:#cbb995; --wine:#7a2e2e; --wine2:#5f2121;
+          --gold:#c8963e; --olive:#4d5f3f; --dark:#3a2a1e; --warn:#a3321f; }
+  html { font-size:clamp(16px, 1.05vw, 24px); }
+  * { box-sizing:border-box; }
+  input, select, button { font-family:inherit; }
+  body { margin:0; padding:1rem; min-height:100vh; color:var(--ink);
+         font-family:"Palatino Linotype","Book Antiqua",Palatino,Sylfaen,Georgia,serif;
+         background:#d9c9a3 repeating-linear-gradient(45deg, rgba(90,60,30,.10) 0 2px, transparent 2px 14px); }
+
+  /* frame around the whole app: fills wide screens nicely */
+  .frame { max-width:92rem; min-height:calc(100vh - 2rem); margin:0 auto; display:flex; flex-direction:column;
+           background:var(--paper); border:.25rem double var(--dark); outline:1px solid var(--dark); outline-offset:.3rem; }
+
+  header { background:var(--dark); border-bottom:.2rem solid var(--gold); display:flex; align-items:center; gap:.4rem; padding:0 1.2rem; }
+  .brand { display:flex; align-items:center; gap:.6rem; color:var(--gold); font-weight:700; letter-spacing:.35rem; margin-right:1.5rem; font-size:1.1rem; }
+  .brand svg { width:1.7rem; height:1.7rem; }
+  header button { background:none; border:0; border-bottom:.2rem solid transparent; color:#cdbd9c; font-size:1.05rem; padding:1rem 1.2rem .8rem; cursor:pointer; letter-spacing:.05rem; }
+  header button:hover { color:#fff; }
+  header button.active { color:var(--paper); border-bottom-color:var(--gold); font-weight:700; }
+
+  main { flex:1; width:100%; padding:1.5rem 1.6rem 2rem; }
+  .page { display:none; } .page.active { display:block; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:.3rem; padding:1.1rem; box-shadow:.15rem .15rem 0 rgba(58,42,30,.12); }
+
+  input, select { font-size:1rem; padding:.6rem .8rem; border:1px solid var(--line); border-radius:.3rem; background:#fffaf0; color:var(--ink); }
+  input::placeholder { color:#8a7a62; }
+  input:focus, select:focus { outline:2px solid var(--gold); border-color:var(--wine); }
+  button.btn { font-size:1rem; padding:.6rem 1.2rem; border-radius:.3rem; border:1px solid var(--wine2); background:var(--wine); color:#fbf3e0; cursor:pointer; font-weight:700; letter-spacing:.03rem; }
+  button.btn:hover { background:var(--wine2); }
+  button.btn.ghost { background:transparent; color:var(--ink); border-color:var(--mute); font-weight:600; }
+  button.btn.ghost:hover { background:#efe3c6; }
+  button.btn:disabled { opacity:.4; cursor:not-allowed; }
+  .icon-btn { background:none; border:0; color:var(--mute); cursor:pointer; padding:.4rem; border-radius:.3rem; line-height:0; }
+  .icon-btn svg { width:1.3rem; height:1.3rem; }
+  .icon-btn:hover { color:var(--wine); background:#efe3c6; }
+
+  /* მთავარი */
+  .main-grid { display:grid; grid-template-columns:2fr 1fr; gap:1.4rem; align-items:start; }
+  @media (max-width:800px){ .main-grid { grid-template-columns:1fr; } }
+  #scan { width:100%; margin-bottom:.9rem; border:2px dashed var(--wine); font-size:1.1rem; padding:.8rem 1rem; }
+  .row { display:flex; align-items:center; gap:.7rem; padding:.7rem 0; border-bottom:1px dashed var(--line); }
+  .row:last-child { border-bottom:0; }
+  .row .info { flex:1; min-width:0; }
+  .row .nm { font-weight:700; font-size:1.1rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .pr { color:var(--wine); font-weight:700; }
+  .row select { min-width:9.5rem; font-weight:600; cursor:pointer; }
+  .row select.need { border:2px solid var(--gold); background:#fbecc4; color:var(--wine2); }
+  .empty { color:var(--mute); text-align:center; padding:2.5rem 0; font-style:italic; }
+  .orn { color:var(--gold); font-size:1.6rem; font-style:normal; margin-bottom:.3rem; }
+
+  .side { border-top:.3rem solid var(--wine); }
+  .total-label { color:var(--mute); font-size:.95rem; letter-spacing:.08rem; padding-bottom:.5rem; border-bottom:1px dashed var(--mute); }
+  .total { font-size:2.6rem; font-weight:700; margin:.7rem 0 1rem; color:var(--wine); }
+  .side .btn { width:100%; padding:.9rem; font-size:1.2rem; }
+  .msg { min-height:1.4rem; margin-top:.6rem; }
+  .msg.err { color:var(--warn); font-weight:600; } .msg.ok { color:var(--olive); font-weight:700; }
+
+  /* საწყობი */
+  .toolbar { display:flex; gap:.7rem; margin-bottom:.9rem; }
+  .toolbar input { flex:1; font-size:1.05rem; }
+  .chips { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.1rem; }
+  .chip { padding:.4rem 1rem; border:1px solid var(--mute); background:transparent; color:var(--ink); border-radius:999px; cursor:pointer; font-size:.95rem; }
+  .chip:hover { background:#efe3c6; }
+  .chip.active { background:var(--dark); border-color:var(--dark); color:var(--paper); }
+  .products { display:grid; grid-template-columns:repeat(auto-fill,minmax(16rem,1fr)); gap:1rem; }
+  .prod { border-top:.3rem solid var(--gold); }
+  .prod h3 { margin:0 0 .15rem; font-size:1.2rem; }
+  .prod .meta { color:var(--mute); font-size:.92rem; margin-bottom:.7rem; }
+  .sizes { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:.7rem; }
+  .size { background:#fffaf0; border:1px solid var(--mute); border-radius:.25rem; padding:.25rem .65rem; font-size:.95rem; cursor:pointer; }
+  .size:hover { border-color:var(--wine); background:#f6e9c9; }
+  .size b { margin-left:.3rem; }
+  .low, .low b { color:var(--warn); }
+  .prod .foot { display:flex; justify-content:space-between; align-items:center; font-size:.9rem; color:var(--mute); border-top:1px dashed var(--line); padding-top:.5rem; }
+
+  /* modal */
+  .overlay { position:fixed; inset:0; background:rgba(43,33,24,.75); display:none; align-items:center; justify-content:center; padding:1rem; z-index:10; }
+  .overlay.show { display:flex; }
+  .modal { background:var(--paper); border:.2rem double var(--dark); border-radius:.3rem; padding:1.5rem; width:100%; max-width:30rem; max-height:92vh; overflow:auto; }
+  .modal h2 { margin:0 0 1rem; color:var(--wine); }
+  .field { display:flex; flex-direction:column; gap:.25rem; margin-bottom:.8rem; }
+  .field label { font-size:.9rem; color:var(--mute); }
+  .size-row { display:flex; gap:.5rem; margin-bottom:.5rem; align-items:center; }
+  .size-row input { width:100%; min-width:0; }
+  .actions { display:flex; gap:.7rem; justify-content:flex-end; margin-top:1rem; }
+
+  /* ანგარიშწორება */
+  .pay-label { color:var(--mute); font-size:.95rem; margin:0 0 .4rem; letter-spacing:.05rem; }
+  .pay { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:1rem; }
+  .pay button { padding:.7rem; border:1px solid var(--mute); background:transparent; color:var(--ink); border-radius:.3rem; cursor:pointer; font-size:1.05rem; font-weight:600; }
+  .pay button:hover { background:#efe3c6; }
+  .pay button.on { background:var(--dark); border-color:var(--dark); color:var(--paper); box-shadow:inset 0 0 0 2px var(--gold); }
+  .pay button.on::before { content:"\2713  "; color:var(--gold); }
+  .pay.need button { border-color:var(--gold); background:#fbecc4; }
+
+  /* ხურდის კალკულატორი */
+  .change-box { border:1px dashed var(--mute); border-radius:.3rem; padding:.7rem .8rem; margin-bottom:1rem; background:#fffaf0; }
+  .change-box label { display:block; color:var(--mute); font-size:.9rem; margin-bottom:.35rem; }
+  .change-box input { width:100%; font-size:1.2rem; text-align:right; }
+  .change-row { display:flex; align-items:baseline; gap:.5rem; margin-top:.6rem; }
+  .change-row .dots { flex:1; border-bottom:2px dotted var(--mute); }
+  .change-row b { font-size:1.7rem; color:var(--olive); }
+  .change-box.short .change-row b { color:var(--warn); font-size:1.2rem; }
+
+  /* დღიური ნავაჭრი */
+  .daily-grid { display:grid; grid-template-columns:20rem 1fr; gap:1.4rem; align-items:start; }
+  @media (max-width:900px){ .daily-grid { grid-template-columns:1fr; } }
+  .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:.6rem; }
+  .cal-title { font-weight:700; font-size:1.1rem; color:var(--wine); }
+  .cal-head .icon-btn { font-size:1.4rem; line-height:1; padding:.2rem .7rem; }
+  .cal-week, .cal-days { display:grid; grid-template-columns:repeat(7,1fr); gap:.2rem; text-align:center; }
+  .cal-week span { font-size:.75rem; color:var(--mute); padding:.2rem 0; border-bottom:1px solid var(--line); margin-bottom:.2rem; }
+  .cal-days button { position:relative; aspect-ratio:1; border:1px solid transparent; background:transparent; color:var(--ink); border-radius:.3rem; cursor:pointer; font-size:.95rem; }
+  .cal-days button:hover { background:#efe3c6; }
+  .cal-days button.today { border-color:var(--mute); }
+  .cal-days button.has::after { content:""; position:absolute; bottom:.22rem; left:50%; width:.32rem; height:.32rem; margin-left:-.16rem; border-radius:50%; background:var(--wine); }
+  .cal-days button.sel { background:var(--dark); color:var(--paper); }
+  .cal-days button.sel.has::after { background:var(--gold); }
+  .cal-foot { display:flex; justify-content:space-between; align-items:center; margin-top:.9rem; font-size:.85rem; color:var(--mute); }
+  .cal-foot { gap:.5rem; flex-wrap:wrap; }
+  .cal-foot .btn { padding:.35rem .8rem; font-size:.9rem; }
+  .cal-foot i { display:inline-block; width:.5rem; height:.5rem; border-radius:50%; background:var(--wine); margin-right:.3rem; }
+  .day-head { display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:flex-start; margin-bottom:1rem; padding-bottom:.8rem; border-bottom:1px dashed var(--mute); }
+  .day-head h2 { margin:0 0 .3rem; color:var(--wine); font-size:1.5rem; }
+  .day-sub { color:var(--mute); font-size:.9rem; }
+  .badge { display:inline-block; padding:.1rem .6rem; margin-right:.5rem; border-radius:999px; font-size:.8rem; font-weight:700; border:1px solid; }
+  .badge.open { color:var(--olive); border-color:var(--olive); }
+  .badge.closed, .badge.future { color:var(--mute); border-color:var(--mute); }
+  .day-actions { display:flex; flex-wrap:wrap; gap:.5rem; }
+  .table-wrap { overflow-x:auto; }
+  table.sales { width:100%; border-collapse:collapse; }
+  .sales th { text-align:left; font-size:.85rem; color:var(--mute); letter-spacing:.05rem; font-weight:600; padding:.4rem .5rem; border-bottom:2px solid var(--dark); white-space:nowrap; }
+  .sales td { padding:.5rem; border-bottom:1px dashed var(--line); vertical-align:middle; }
+  .sales th.num, .sales td.num { text-align:right; }
+  .sales td input, .sales td select { width:100%; min-width:4rem; padding:.35rem .5rem; font-size:.95rem; border-style:dashed; }
+  .sales td input.p { width:6rem; text-align:right; }
+  .sales td input.sz { width:5rem; }
+  .tag { display:inline-block; padding:.1rem .6rem; border:1px solid var(--mute); border-radius:.25rem; font-size:.9rem; font-weight:600; }
+  .tag.visa { border-color:var(--wine); color:var(--wine); }
+  .tag.cash { border-color:var(--olive); color:var(--olive); }
+  button.edit-on { background:var(--gold) !important; color:var(--ink) !important; border-color:var(--gold) !important; }
+  .sum-row { display:flex; align-items:baseline; gap:.5rem; padding:.5rem 0; font-size:1.1rem; }
+  .sum-row .dots { flex:1; border-bottom:2px dotted var(--mute); }
+  .sum-row .val { font-weight:700; font-size:1.3rem; }
+  .sum-row.total { border-top:2px solid var(--dark); margin-top:.6rem; padding-top:.9rem; }
+  .sum-row.total .val { font-size:1.9rem; color:var(--wine); }
+
+  /* გადაცვლა */
+  .x-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.4rem; align-items:start; margin-top:1.4rem; }
+  @media (max-width:900px){ .x-grid { grid-template-columns:1fr; } }
+  .x-card h2 { margin:0 0 .7rem; font-size:1.2rem; color:var(--wine); padding-bottom:.5rem; border-bottom:1px dashed var(--mute); }
+  .x-card.new { border-top:.3rem solid var(--olive); } .x-card.ret { border-top:.3rem solid var(--wine); }
+  .x-card input.s { width:100%; margin-bottom:.5rem; }
+  .x-res { display:flex; justify-content:space-between; gap:.6rem; width:100%; text-align:left; padding:.5rem .7rem; margin-bottom:.3rem; border:1px solid var(--line); background:#fffaf0; border-radius:.3rem; cursor:pointer; font-size:1rem; color:var(--ink); }
+  .x-res:hover { border-color:var(--wine); background:#f6e9c9; }
+  .x-res span { color:var(--mute); font-size:.9rem; white-space:nowrap; }
+  .x-sel { margin-top:.6rem; padding:.8rem; border:1px solid var(--mute); border-radius:.3rem; background:#fffaf0; }
+  .x-name { font-weight:700; font-size:1.2rem; }
+  .x-fields { display:grid; grid-template-columns:auto 1fr; gap:.5rem .8rem; align-items:center; margin:.7rem 0; }
+  .x-fields label { color:var(--mute); font-size:.9rem; }
+  .x-fields select, .x-fields input { width:100%; }
+  .x-summary { margin-top:1.4rem; border-top:.3rem solid var(--gold); }
+  .x-flow { text-align:center; font-size:1.05rem; margin-bottom:.8rem; color:var(--ink); }
+  .x-diff { text-align:center; font-size:2.2rem; font-weight:700; color:var(--wine); margin:.3rem 0; }
+  .x-diff.zero { color:var(--mute); } .x-diff.neg { color:var(--olive); }
+  .x-hint { text-align:center; color:var(--mute); margin-bottom:.8rem; }
+  .x-summary .pay { max-width:26rem; margin:0 auto 1rem; }
+  .x-summary .btn.go { display:block; width:100%; max-width:26rem; margin:0 auto; padding:.9rem; font-size:1.2rem; }
+  .sales tr.ex td { background:#f3ecd2; }
+  .note { font-size:.85rem; color:var(--mute); font-weight:400; margin-top:.15rem; }
+  .sales td input.note-in { margin-top:.3rem; font-size:.85rem; }
+</style>
+</head>
+<body>
+<div class="frame">
+<header>
+  <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8a2.5 2.5 0 1 0-2.5-2.5"/><path d="M12 8v3l9 6a1 1 0 0 1-.6 1.8H3.6A1 1 0 0 1 3 17l9-6"/></svg><span>STORE</span></div>
+  <button id="tab-main" class="active">მთავარი</button>
+  <button id="tab-stock">საწყობი</button>
+  <button id="tab-exchange">გადაცვლა</button>
+  <button id="tab-daily">დღიური ნავაჭრი</button>
+</header>
+
+<main>
+  <!-- ===== მთავარი ===== -->
+  <section id="page-main" class="page active">
+    <div class="main-grid">
+      <div class="card">
+        <input id="scan" placeholder="დაასკანერე QR კოდი აქ..." autocomplete="off">
+        <div id="cart"></div>
+      </div>
+      <div class="card side">
+        <div class="total-label">ჯამური ღირებულება</div>
+        <div class="total" id="total">0.00 ₾</div>
+        <div class="pay-label">ანგარიშწორება</div>
+        <div class="pay" id="pay">
+          <button type="button" data-pay="visa">Visa</button>
+          <button type="button" data-pay="cash">ნაღდი</button>
+        </div>
+        <div class="change-box" id="change-box">
+          <label for="given">მომხმარებელმა მოგცა (₾)</label>
+          <input id="given" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00">
+          <div class="change-row"><span>ხურდა</span><span class="dots"></span><b id="change">—</b></div>
+        </div>
+        <button class="btn" id="finish" disabled>შესრულება</button>
+        <div class="msg" id="msg"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== საწყობი ===== -->
+  <section id="page-stock" class="page">
+    <div class="toolbar">
+      <input id="search" placeholder="მოძებნე პროდუქტი სახელით..." autocomplete="off">
+      <button class="btn" id="add-open">+ დამატება</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="products" id="products"></div>
+  </section>
+
+  <!-- ===== გადაცვლა ===== -->
+  <section id="page-exchange" class="page">
+    <div class="card">
+      <input id="xscan" placeholder="დაასკანერე QR კოდი აქ..." autocomplete="off" style="width:100%;border:2px dashed var(--wine);font-size:1.1rem;padding:.8rem 1rem">
+      <div class="day-sub" style="margin-top:.5rem">სკანირებული ნივთი ჯერ ჩაჯდება „დაბრუნებულში", შემდეგ „ახალში". ან მოძებნე ხელით თითოეულ ბლოკში.</div>
+    </div>
+    <div class="x-grid">
+      <div class="card x-card ret">
+        <h2>დაბრუნებული ნივთი <span class="day-sub" style="font-weight:400">(უნდა იყოს გაყიდული)</span></h2>
+        <input class="s" id="xs-ret" placeholder="მოძებნე სახელით..." autocomplete="off">
+        <div id="xr-ret"></div><div id="xsel-ret"></div>
+      </div>
+      <div class="card x-card new">
+        <h2>ახალი ნივთი</h2>
+        <input class="s" id="xs-new" placeholder="მოძებნე სახელით..." autocomplete="off">
+        <div id="xr-new"></div><div id="xsel-new"></div>
+      </div>
+    </div>
+    <div class="card x-summary">
+      <div class="x-flow" id="x-flow"></div>
+      <div class="x-diff zero" id="x-diff">—</div>
+      <div class="x-hint" id="x-hint">აირჩიე ორივე ნივთი</div>
+      <div id="x-paybox" style="display:none">
+        <div class="pay-label" style="text-align:center">ანგარიშწორება</div>
+        <div class="pay" id="xpay"><button type="button" data-xpay="visa">Visa</button><button type="button" data-xpay="cash">ნაღდი</button></div>
+      </div>
+      <button class="btn go" id="x-go" disabled>გადაცვლა</button>
+      <div class="msg" id="x-msg" style="text-align:center"></div>
+    </div>
+  </section>
+
+  <!-- ===== დღიური ნავაჭრი ===== -->
+  <section id="page-daily" class="page">
+    <div class="daily-grid">
+      <div class="card">
+        <div class="cal-head">
+          <button class="icon-btn" id="cal-prev" title="წინა თვე">&#8249;</button>
+          <div class="cal-title" id="cal-title"></div>
+          <button class="icon-btn" id="cal-next" title="შემდეგი თვე">&#8250;</button>
+        </div>
+        <div class="cal-week"><span>ორშ</span><span>სამ</span><span>ოთხ</span><span>ხუთ</span><span>პარ</span><span>შაბ</span><span>კვი</span></div>
+        <div class="cal-days" id="cal-days"></div>
+        <div class="cal-foot"><span><i></i>გაყიდვები არის</span><button class="btn ghost" id="cal-today">მიმდინარე დღე</button></div>
+      </div>
+      <div class="card">
+        <div class="day-head">
+          <div><h2 id="day-title"></h2><div class="day-sub" id="day-sub"></div></div>
+          <div class="day-actions">
+            <button class="btn ghost" id="edit-toggle">რედაქტირება</button>
+            <button class="btn ghost" id="day-sum">დღიური ჯამი</button>
+            <button class="btn" id="day-close">დღის დასრულება</button>
+            <button class="btn ghost" id="day-open">დღის გახსნა</button>
+          </div>
+        </div>
+        <div class="table-wrap"><table class="sales"><thead id="sales-head"></thead><tbody id="sales-body"></tbody></table></div>
+        <div class="msg" id="day-msg"></div>
+      </div>
+    </div>
+  </section>
+</main>
+</div>
+
+<!-- დამატება modal -->
+<div class="overlay" id="add-modal">
+  <div class="modal">
+    <h2>პროდუქტის დამატება</h2>
+    <div class="field"><label>სახელი</label><input id="f-name" placeholder="მაგ: La Coste მაისური"></div>
+    <div class="field"><label>კატეგორია</label><input id="f-cat" list="cat-list" placeholder="მაგ: მაისური, შარვალი, ჯინსი"><datalist id="cat-list"></datalist></div>
+    <div class="field"><label>ფასი (₾)</label><input id="f-price" type="number" step="0.01" min="0" placeholder="50"></div>
+    <div class="field"><label>ზომები და რაოდენობა</label>
+      <div id="size-rows"></div>
+      <button class="btn ghost" id="add-size" type="button">+ ზომა</button>
+    </div>
+    <div class="field"><label>QR კოდი (დაასკანერე ამ ველში)</label><input id="f-qr" autocomplete="off"></div>
+    <div class="msg err" id="add-msg"></div>
+    <div class="actions">
+      <button class="btn ghost" id="add-cancel">გაუქმება</button>
+      <button class="btn" id="add-save">შენახვა</button>
+    </div>
+  </div>
+</div>
+
+<!-- დადასტურება modal -->
+<div class="overlay" id="confirm-modal">
+  <div class="modal">
+    <h2>დარწმუნებული ხარ?</h2>
+    <p id="confirm-text"></p>
+    <div class="actions">
+      <button class="btn ghost" id="confirm-no">არა</button>
+      <button class="btn" id="confirm-yes">დიახ</button>
+    </div>
+  </div>
+</div>
+
+<!-- რაოდენობის შეცვლა modal -->
+<div class="overlay" id="qty-modal">
+  <div class="modal">
+    <h2>რაოდენობა</h2>
+    <p id="qty-text"></p>
+    <input id="qty-input" type="number" min="0" style="width:100%">
+    <div class="actions">
+      <button class="btn ghost" id="qty-cancel">გაუქმება</button>
+      <button class="btn" id="qty-ok">შენახვა</button>
+    </div>
+  </div>
+</div>
+
+<!-- დღიური ჯამი modal -->
+<div class="overlay" id="sum-modal">
+  <div class="modal">
+    <h2>დღიური ჯამი</h2>
+    <div class="day-sub" id="sum-date" style="margin-bottom:.8rem"></div>
+    <div id="sum-body"></div>
+    <div class="actions"><button class="btn" id="sum-close">დახურვა</button></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ICON_BOX = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>';
+const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
+const money = n => n.toFixed(2) + ' ₾';
+const api = async (url, opts) => {
+  const r = await fetch(url, opts && {...opts, headers: {'Content-Type':'application/json'}, body: opts.body && JSON.stringify(opts.body)});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'შეცდომა');
+  return data;
+};
+
+/* ---------- tabs ---------- */
+function show(page) {
+  for (const n of ['main', 'stock', 'exchange', 'daily']) {
+    $('#tab-' + n).classList.toggle('active', n === page);
+    $('#page-' + n).classList.toggle('active', n === page);
+  }
+  if (page === 'main') $('#scan').focus();
+  else if (page === 'stock') loadStock();
+  else if (page === 'exchange') $('#xscan').focus();
+  else loadDaily();
+}
+$('#tab-main').onclick = () => show('main');
+$('#tab-stock').onclick = () => show('stock');
+$('#tab-daily').onclick = () => show('daily');
+$('#tab-exchange').onclick = () => show('exchange');
+
+/* ---------- მთავარი ---------- */
+let cart = [];          // {uid, p: product, size: string|null}
+let uid = 0;
+
+function setMsg(text, kind) { const m = $('#msg'); m.textContent = text || ''; m.className = 'msg ' + (kind || ''); }
+
+async function processScan(code) {
+  try {
+    const p = await api('/api/product-by-qr/' + encodeURIComponent(code));
+    const avail = p.sizes.filter(s => s.qty > 0);
+    cart.push({uid: ++uid, p, size: avail.length === 1 ? avail[0].size : null});
+    setMsg('');
+    renderCart();
+  } catch (err) { setMsg(err.message + ' (' + code + ')', 'err'); }
+}
+$('#scan').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const code = e.target.value.trim();
+  e.target.value = '';
+  if (code) processScan(code);
+});
+document.addEventListener('click', e => {
+  if ($('#page-main').classList.contains('active') && !e.target.closest('select,input,button,.overlay')) $('#scan').focus();
+});
+
+function renderCart() {
+  const box = $('#cart');
+  if (!cart.length) box.innerHTML = '<div class="empty"><div class="orn">✦</div>დაასკანერე პროდუქტი QR კოდით</div>';
+  else box.innerHTML = cart.map(it => {
+    const opts = it.p.sizes.filter(s => s.qty > 0)
+      .map(s => `<option value="${esc(s.size)}" ${s.size === it.size ? 'selected' : ''}>${esc(s.size)} · დარჩა ${s.qty}</option>`).join('');
+    return `<div class="row">
+      <button class="icon-btn" title="საწყობში ნახვა" data-box="${it.uid}">${ICON_BOX}</button>
+      <div class="info"><div class="nm">${esc(it.p.name)}</div><div class="pr">${money(it.p.price)}</div></div>
+      <select data-size="${it.uid}" class="${it.size ? '' : 'need'}"><option value="">აირჩიე ზომა</option>${opts}</select>
+      <button class="icon-btn" title="წაშლა" data-del="${it.uid}">${ICON_TRASH}</button>
+    </div>`;
+  }).join('');
+  const total = cart.reduce((s, it) => s + it.p.price, 0);
+  $('#total').textContent = money(total);
+  $('#finish').disabled = !cart.length;
+  updateChange();
+}
+$('#cart').addEventListener('click', e => {
+  const del = e.target.closest('[data-del]'), box = e.target.closest('[data-box]');
+  if (del) { cart = cart.filter(i => i.uid != del.dataset.del); renderCart(); $('#scan').focus(); }
+  if (box) { const it = cart.find(i => i.uid == box.dataset.box); $('#search').value = it.p.name; setCategory(''); show('stock'); }
+});
+$('#cart').addEventListener('change', e => {
+  const sel = e.target.closest('[data-size]');
+  if (sel) { cart.find(i => i.uid == sel.dataset.size).size = sel.value || null; sel.classList.toggle('need', !sel.value); $('#scan').focus(); }
+});
+
+let confirmResolve = null;
+function askConfirm(text) {
+  $('#confirm-text').textContent = text;
+  $('#confirm-modal').classList.add('show');
+  return new Promise(r => confirmResolve = r);
+}
+function closeConfirm(v) { $('#confirm-modal').classList.remove('show'); if (confirmResolve) confirmResolve(v); confirmResolve = null; }
+$('#confirm-no').onclick = () => closeConfirm(false);
+$('#confirm-yes').onclick = () => closeConfirm(true);
+
+let qtyResolve = null;
+function askQty(text, def) {
+  $('#qty-text').textContent = text; $('#qty-input').value = def;
+  $('#qty-modal').classList.add('show'); $('#qty-input').focus(); $('#qty-input').select();
+  return new Promise(r => qtyResolve = r);
+}
+function closeQty(v) { $('#qty-modal').classList.remove('show'); if (qtyResolve) qtyResolve(v); qtyResolve = null; }
+$('#qty-cancel').onclick = () => closeQty(null);
+$('#qty-ok').onclick = () => closeQty(parseInt($('#qty-input').value) || 0);
+$('#qty-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('#qty-ok').click(); });
+
+function updateChange() {
+  const raw = $('#given').value.trim();
+  const box = $('#change-box'), out = $('#change');
+  const given = Math.round(parseFloat(raw) * 100);
+  if (raw === '' || isNaN(given)) { out.textContent = '—'; box.classList.remove('short'); return; }
+  const diff = given - Math.round(cart.reduce((s, i) => s + i.p.price, 0) * 100);   // in tetri, avoids rounding errors
+  box.classList.toggle('short', diff < 0);
+  out.textContent = diff >= 0 ? money(diff / 100) : 'აკლია ' + money(-diff / 100);
+}
+$('#given').addEventListener('input', updateChange);
+$('#given').addEventListener('keydown', e => { if (e.key === 'Enter') $('#scan').focus(); });
+
+$('#finish').onclick = async () => {
+  if (cart.some(i => !i.size)) { setMsg('აირჩიე ზომა ყველა პროდუქტისთვის', 'err'); return; }
+  if (!payment) { $('#pay').classList.add('need'); setMsg('აირჩიე ანგარიშწორების საშუალება', 'err'); return; }
+  const ok = await askConfirm(`გაიყიდოს ${cart.length} ერთეული, ჯამში ${money(cart.reduce((s, i) => s + i.p.price, 0))}. ანგარიშწორება: ${PAY[payment]}. დარწმუნებული ხარ?`);
+  if (!ok) { $('#scan').focus(); return; }
+  try {
+    await api('/api/sell', {method: 'POST', body: {payment, items: cart.map(i => ({product_id: i.p.id, size: i.size}))}});
+    cart = []; $('#given').value = ''; renderCart(); setMsg('გაყიდვა დასრულდა ✓', 'ok');
+  } catch (err) { setMsg(err.message, 'err'); }
+  $('#scan').focus();
+};
+
+/* ---------- საწყობი ---------- */
+let category = '';
+function setCategory(c) { category = c; }
+
+async function loadStock() {
+  const q = $('#search').value.trim();
+  const [cats, prods] = await Promise.all([
+    api('/api/categories'),
+    api('/api/products?q=' + encodeURIComponent(q) + '&category=' + encodeURIComponent(category)),
+  ]);
+  $('#chips').innerHTML = ['', ...cats].map(c =>
+    `<button class="chip ${c === category ? 'active' : ''}" data-cat="${esc(c)}">${c ? esc(c) : 'ყველა'}</button>`).join('');
+  $('#cat-list').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+  $('#products').innerHTML = prods.length ? prods.map(p => `
+    <div class="card prod">
+      <h3>${esc(p.name)}</h3>
+      <div class="meta">${esc(p.category || 'კატეგორიის გარეშე')} · ${money(p.price)}</div>
+      <div class="sizes">${p.sizes.length ? p.sizes.map(s =>
+        `<span class="size ${s.qty <= 1 ? 'low' : ''}" title="დააჭირე რაოდენობის შესაცვლელად" data-fix="${p.id}|${esc(s.size)}|${s.qty}">${esc(s.size)}<b>× ${s.qty}</b></span>`).join('')
+        : '<span class="low">ამოწურულია</span>'}</div>
+      <div class="foot"><span>სულ: ${p.total} ც.</span><button class="icon-btn" title="პროდუქტის წაშლა" data-rm="${p.id}|${esc(p.name)}">${ICON_TRASH}</button></div>
+    </div>`).join('') : '<div class="empty">პროდუქტი ვერ მოიძებნა</div>';
+}
+let t; $('#search').addEventListener('input', () => { clearTimeout(t); t = setTimeout(loadStock, 150); });
+$('#chips').addEventListener('click', e => {
+  const c = e.target.closest('[data-cat]'); if (!c) return; category = c.dataset.cat; loadStock();
+});
+$('#products').addEventListener('click', async e => {
+  const fix = e.target.closest('[data-fix]'), rm = e.target.closest('[data-rm]');
+  if (fix) {
+    const [id, size, qty] = fix.dataset.fix.split('|');
+    const v = await askQty(`ზომა ${size}: ახალი რაოდენობა (0 = წაშლა)`, qty);
+    if (v === null) return;
+    await api('/api/stock', {method: 'PUT', body: {product_id: +id, size, qty: v}});
+    loadStock();
+  }
+  if (rm) {
+    const [id, name] = rm.dataset.rm.split('|');
+    if (await askConfirm(`წაიშალოს "${name}" მთლიანად?`)) { await api('/api/products/' + id, {method: 'DELETE'}); loadStock(); }
+  }
+});
+
+/* ---------- დამატება ---------- */
+function addSizeRow(size = '', qty = '') {
+  const d = document.createElement('div'); d.className = 'size-row';
+  d.innerHTML = `<input class="sz" placeholder="ზომა (M, L, XL...)" value="${esc(size)}"><input class="qt" type="number" min="1" placeholder="რაოდენობა" value="${esc(qty)}"><button class="icon-btn" type="button">${ICON_TRASH}</button>`;
+  d.querySelector('button').onclick = () => d.remove();
+  $('#size-rows').appendChild(d);
+}
+$('#add-size').onclick = () => addSizeRow();
+$('#add-open').onclick = () => {
+  ['#f-name', '#f-cat', '#f-price', '#f-qr'].forEach(s => $(s).value = '');
+  $('#size-rows').innerHTML = ''; addSizeRow(); $('#add-msg').textContent = '';
+  $('#add-modal').classList.add('show'); $('#f-name').focus();
+};
+$('#add-cancel').onclick = () => $('#add-modal').classList.remove('show');
+$('#f-qr').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#add-save').click(); } });
+$('#add-save').onclick = async () => {
+  const sizes = [...document.querySelectorAll('.size-row')].map(r => ({size: r.querySelector('.sz').value, qty: r.querySelector('.qt').value}))
+    .filter(s => s.size.trim() && s.qty);
+  try {
+    await api('/api/products', {method: 'POST', body: {
+      name: $('#f-name').value, category: $('#f-cat').value, price: $('#f-price').value, qr: $('#f-qr').value, sizes }});
+    $('#add-modal').classList.remove('show'); loadStock();
+  } catch (err) { $('#add-msg').textContent = err.message; }
+};
+
+
+/* ---------- ანგარიშწორება (remembered in database) ---------- */
+const PAY = {cash: 'ნაღდი', visa: 'Visa'};
+let payment = null;
+function renderPay() {
+  document.querySelectorAll('#pay button').forEach(b => b.classList.toggle('on', b.dataset.pay === payment));
+  $('#pay').classList.remove('need');
+}
+$('#pay').addEventListener('click', async e => {
+  const b = e.target.closest('[data-pay]'); if (!b) return;
+  payment = b.dataset.pay; renderPay(); setMsg(''); $('#scan').focus();
+  try { await api('/api/settings', {method: 'PUT', body: {payment}}); } catch (err) { setMsg(err.message, 'err'); }
+});
+async function loadSettings() {
+  try { payment = (await api('/api/settings')).payment || null; } catch (e) {}
+  renderPay();
+}
+
+/* ---------- დღიური ნავაჭრი + კალენდარი ---------- */
+const MONTHS = ['იანვარი','თებერვალი','მარტი','აპრილი','მაისი','ივნისი','ივლისი','აგვისტო','სექტემბერი','ოქტომბერი','ნოემბერი','დეკემბერი'];
+const WEEKDAYS = ['კვირა','ორშაბათი','სამშაბათი','ოთხშაბათი','ხუთშაბათი','პარასკევი','შაბათი'];
+const pad = n => String(n).padStart(2, '0');
+let dayInfo = null, selDay = null, calY = 0, calM = 0, calMarks = new Set(), editMode = false, dayData = null;
+
+function dayMsg(text, kind) { const m = $('#day-msg'); m.textContent = text || ''; m.className = 'msg ' + (kind || ''); }
+function fmtDay(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d} ${MONTHS[m - 1]} ${y}, ${WEEKDAYS[new Date(y, m - 1, d).getDay()]}`;
+}
+
+async function loadDaily() {
+  dayInfo = await api('/api/day-info');
+  await selectDay(dayInfo.current_day);
+}
+async function selectDay(day) {
+  const [y, m] = day.split('-').map(Number);
+  calY = y; calM = m - 1; selDay = day; editMode = false; dayMsg('');
+  await Promise.all([loadMarks(), loadDay()]);
+}
+function pickDay(day) { selDay = day; editMode = false; dayMsg(''); drawCalendar(); loadDay(); }
+
+async function loadMarks() {
+  try { calMarks = new Set((await api(`/api/calendar?month=${calY}-${pad(calM + 1)}`)).days); } catch (e) { calMarks = new Set(); }
+  drawCalendar();
+}
+function drawCalendar() {
+  $('#cal-title').textContent = `${MONTHS[calM]} ${calY}`;
+  const offset = (new Date(calY, calM, 1).getDay() + 6) % 7;   // week starts on Monday
+  const n = new Date(calY, calM + 1, 0).getDate();
+  const t = new Date(), todayISO = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+  let h = '<span></span>'.repeat(offset);
+  for (let d = 1; d <= n; d++) {
+    const iso = `${calY}-${pad(calM + 1)}-${pad(d)}`;
+    const cls = [iso === selDay ? 'sel' : '', iso === todayISO ? 'today' : '', calMarks.has(iso) ? 'has' : ''].join(' ');
+    h += `<button data-d="${iso}" class="${cls}">${d}</button>`;
+  }
+  $('#cal-days').innerHTML = h;
+}
+$('#cal-prev').onclick = () => { calM--; if (calM < 0) { calM = 11; calY--; } loadMarks(); };
+$('#cal-next').onclick = () => { calM++; if (calM > 11) { calM = 0; calY++; } loadMarks(); };
+$('#cal-today').onclick = () => selectDay(dayInfo ? dayInfo.current_day : selDay);
+$('#cal-days').addEventListener('click', e => { const b = e.target.closest('[data-d]'); if (b) pickDay(b.dataset.d); });
+
+async function loadDay() {
+  try { dayData = await api('/api/sales?day=' + selDay); } catch (err) { dayMsg(err.message, 'err'); return; }
+  renderDay();
+}
+const payOpts = v => `<option value="cash" ${v === 'cash' ? 'selected' : ''}>ნაღდი</option><option value="visa" ${v === 'visa' ? 'selected' : ''}>Visa</option>`;
+function renderDay() {
+  const d = dayData;
+  const badge = d.state === 'open' ? '<span class="badge open">მიმდინარე დღე</span>'
+              : d.state === 'future' ? '<span class="badge future">მომავალი დღე</span>'
+              : '<span class="badge closed">დასრულებულია</span>';
+  $('#day-title').textContent = fmtDay(d.day);
+  $('#day-sub').innerHTML = `${badge}სამუშაო საათები ${pad(dayInfo.start)}:00 – ${pad(dayInfo.end)}:00`;
+  $('#edit-toggle').textContent = editMode ? 'რედაქტირების დასრულება' : 'რედაქტირება';
+  $('#edit-toggle').classList.toggle('edit-on', editMode);
+  $('#day-close').style.display = d.state === 'open' ? '' : 'none';
+  $('#day-open').style.display = d.can_reopen ? '' : 'none';
+
+  $('#sales-head').innerHTML = `<tr><th>დრო</th><th>სახელწოდება</th><th>კატეგორია</th><th>ზომა</th><th class="num">ფასი</th><th>გადახდის საშუალება</th>${editMode ? '<th></th>' : ''}</tr>`;
+  const sgn = n => (n > 0 ? '+' : '') + money(n);
+  $('#sales-body').innerHTML = d.sales.length ? d.sales.map(x => x.kind === 'exchange' ? (editMode
+    ? `<tr class="ex" data-id="${x.id}"><td>${esc(x.time)}</td>
+        <td><b>${esc(x.name)}</b><input class="note-in" data-f="note" value="${esc(x.note)}"></td>
+        <td>${esc(x.category)}</td><td>${esc(x.size)}</td>
+        <td class="num"><input class="p" data-f="price" type="number" step="0.01" value="${x.price}"></td>
+        <td><select data-f="payment">${payOpts(x.payment)}</select></td>
+        <td><button class="icon-btn" title="წაშლა" data-delsale="${x.id}">${ICON_TRASH}</button></td></tr>`
+    : `<tr class="ex"><td>${esc(x.time)}</td><td><b>${esc(x.name)}</b><div class="note">${esc(x.note)}</div></td>
+        <td>${esc(x.category)}</td><td>${esc(x.size)}</td>
+        <td class="num"><b>${sgn(x.price)}</b></td><td><span class="tag ${esc(x.payment)}">${PAY[x.payment] || '—'}</span></td></tr>`)
+    : editMode
+    ? `<tr data-id="${x.id}"><td>${esc(x.time)}</td>
+        <td><input data-f="name" value="${esc(x.name)}"></td>
+        <td><input data-f="category" value="${esc(x.category)}"></td>
+        <td><input class="sz" data-f="size" value="${esc(x.size)}"></td>
+        <td class="num"><input class="p" data-f="price" type="number" step="0.01" min="0" value="${x.price}"></td>
+        <td><select data-f="payment">${payOpts(x.payment)}</select></td>
+        <td><button class="icon-btn" title="წაშლა" data-delsale="${x.id}">${ICON_TRASH}</button></td></tr>`
+    : `<tr><td>${esc(x.time)}</td><td>${esc(x.name)}</td><td>${esc(x.category || '—')}</td><td>${esc(x.size)}</td>
+        <td class="num">${money(x.price)}</td><td><span class="tag ${esc(x.payment)}">${PAY[x.payment] || '—'}</span></td></tr>`
+  ).join('') : `<tr><td colspan="7" class="empty">ამ დღეს გაყიდვები არ არის</td></tr>`;
+}
+
+$('#edit-toggle').onclick = () => { editMode = !editMode; dayMsg(''); loadDay(); };
+$('#sales-body').addEventListener('change', async e => {
+  const f = e.target.closest('[data-f]'); if (!f) return;
+  const tr = f.closest('tr'), v = k => { const el = tr.querySelector(`[data-f="${k}"]`); return el ? el.value : ''; };
+  try {
+    const r = await api('/api/sales/' + tr.dataset.id, {method: 'PUT', body: {name: v('name'), category: v('category'), size: v('size'), price: v('price'), payment: v('payment'), note: v('note')}});
+    dayMsg(r.stock_updated ? 'შენახულია ✓ საწყობის მარაგი განახლდა' : 'შენახულია ✓', 'ok');
+  } catch (err) {
+    await loadDay();          // put the old value back in the field
+    dayMsg(err.message, 'err');
+  }
+});
+$('#sales-body').addEventListener('click', async e => {
+  const del = e.target.closest('[data-delsale]'); if (!del) return;
+  if (!await askConfirm('წაიშალოს ეს ჩანაწერი დღიური ნავაჭრიდან? (საწყობის მარაგი არ შეიცვლება)')) return;
+  try { await api('/api/sales/' + del.dataset.delsale, {method: 'DELETE'}); dayMsg('ჩანაწერი წაიშალა', 'ok'); loadDay(); }
+  catch (err) { dayMsg(err.message, 'err'); }
+});
+
+/* დღიური ჯამი: only cash, visa and both together */
+async function openSummary() {
+  const s = await api('/api/summary?day=' + selDay);
+  const row = (label, v) => `<div class="sum-row"><span>${label}</span><span class="dots"></span><span class="val">${money(v)}</span></div>`;
+  $('#sum-date').textContent = fmtDay(selDay);
+  $('#sum-body').innerHTML = row('ნაღდი', s.cash) + row('Visa', s.visa) +
+    `<div class="sum-row total"><span>სულ</span><span class="dots"></span><span class="val">${money(s.total)}</span></div>`;
+  $('#sum-modal').classList.add('show');
+}
+$('#day-sum').onclick = () => openSummary().catch(err => dayMsg(err.message, 'err'));
+$('#sum-close').onclick = () => $('#sum-modal').classList.remove('show');
+
+$('#day-close').onclick = async () => {
+  if (!await askConfirm('დასრულდეს დღე? ამ მომენტიდან ახალი გაყიდვები ჩაიწერება შემდეგ დღეში.')) return;
+  try {
+    await api('/api/day/close', {method: 'POST', body: {day: selDay}});
+    dayInfo = await api('/api/day-info');
+    await loadDay(); await openSummary();
+  } catch (err) { dayMsg(err.message, 'err'); }
+};
+$('#day-open').onclick = async () => {
+  try {
+    await api('/api/day/open', {method: 'POST', body: {day: selDay}});
+    dayInfo = await api('/api/day-info');
+    await loadDay(); dayMsg('დღე ხელახლა გაიხსნა', 'ok');
+  } catch (err) { dayMsg(err.message, 'err'); }
+};
+
+/* ---------- გადაცვლა ---------- */
+const xs = {ret: null, new: null};
+const xList = {ret: [], new: []};
+function xMsg(t, k) { const m = $('#x-msg'); m.textContent = t || ''; m.className = 'msg ' + (k || ''); }
+const cents = v => Math.round((parseFloat(v) || 0) * 100);
+function xDiffCents() { return xs.ret && xs.new ? cents(xs.new.price) - cents(xs.ret.price) : null; }
+
+async function xPick(slot, p) {
+  if (slot === 'ret') {
+    // the returned item must be a piece that was really sold and not exchanged yet
+    let units = [];
+    try { units = await api('/api/returnable/' + p.id); } catch (err) { xMsg(err.message, 'err'); return; }
+    if (!units.length) { xMsg(`„${p.name}" არ არის გაყიდული (ან უკვე გადაცვლილია), ამიტომ დაბრუნება არ შეიძლება`, 'err'); return; }
+    xs.ret = {p, units, saleId: units.length === 1 ? units[0].id : null, size: units.length === 1 ? units[0].size : '',
+              price: units.length === 1 ? units[0].price : 0};
+  } else {
+    const sizes = p.sizes.filter(z => z.qty > 0).map(z => z.size);
+    xs.new = {p, size: sizes.length === 1 ? sizes[0] : '', price: p.price};
+  }
+  xMsg(''); xRender();
+}
+async function xScan(code) {
+  try {
+    const p = await api('/api/product-by-qr/' + encodeURIComponent(code));
+    if (!xs.ret) await xPick('ret', p);
+    else if (!xs.new) await xPick('new', p);
+    else xMsg('ორივე ნივთი უკვე არჩეულია. ახალი სკანირებისთვის დააჭირე „გასუფთავებას"', 'err');
+  } catch (err) { xMsg(err.message + ' (' + code + ')', 'err'); }
+}
+const fmtUnitDate = d => `${d.slice(8)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
+function xSelHtml(slot) {
+  const it = xs[slot];
+  if (!it) return '<div class="empty">ნივთი არ არის არჩეული</div>';
+  const p = it.p;
+  let sizeEl;
+  if (slot === 'ret') {
+    return `<div class="x-sel"><div class="x-name">${esc(p.name)}</div><div class="day-sub">${esc(p.category || 'კატეგორიის გარეშე')}</div>
+    <div class="x-fields"><label>გაყიდული</label>
+      <select data-xunit="ret"><option value="">აირჩიე გაყიდული ნივთი</option>${it.units.map(u =>
+        `<option value="${u.id}" ${u.id === it.saleId ? 'selected' : ''}>${esc(u.size)} · ${fmtUnitDate(u.day)} ${esc(u.time)} · ${money(u.price)}</option>`).join('')}</select>
+      <label>ფასი</label><b>${it.saleId ? money(it.price) : '—'}</b></div>
+    <div class="day-sub" style="margin-bottom:.6rem">ფასი აღებულია გაყიდვის ჩანაწერიდან</div>
+    <button class="btn ghost" data-xclear="ret" type="button">გასუფთავება</button></div>`;
+  } else {
+    const av = p.sizes.filter(z => z.qty > 0);
+    sizeEl = av.length
+      ? `<select data-xsize="new"><option value="">აირჩიე ზომა</option>${av.map(z => `<option value="${esc(z.size)}" ${z.size === it.size ? 'selected' : ''}>${esc(z.size)} · დარჩა ${z.qty}</option>`).join('')}</select>`
+      : '<span class="low">ამოწურულია საწყობში</span>';
+  }
+  return `<div class="x-sel"><div class="x-name">${esc(p.name)}</div><div class="day-sub">${esc(p.category || 'კატეგორიის გარეშე')}</div>
+    <div class="x-fields"><label>ზომა</label>${sizeEl}<label>ფასი (₾)</label><input data-xprice="${slot}" type="number" step="0.01" min="0" value="${it.price}"></div>
+    <button class="btn ghost" data-xclear="${slot}" type="button">გასუფთავება</button></div>`;
+}
+function xRender() {
+  $('#xsel-ret').innerHTML = xSelHtml('ret'); $('#xsel-new').innerHTML = xSelHtml('new');
+  const d = (xs.ret && !xs.ret.saleId) ? null : xDiffCents(), el = $('#x-diff'), hint = $('#x-hint');
+  $('#x-flow').textContent = xs.ret && xs.new ? `${xs.ret.p.name}${xs.ret.size ? ' (' + xs.ret.size + ')' : ''}  →  ${xs.new.p.name}${xs.new.size ? ' (' + xs.new.size + ')' : ''}` : '';
+  if (d === null) { el.textContent = '—'; el.className = 'x-diff zero'; hint.textContent = xs.ret && !xs.ret.saleId ? 'აირჩიე, რომელი გაყიდული ნივთი ბრუნდება' : 'აირჩიე ორივე ნივთი'; }
+  else if (d > 0) { el.textContent = '+' + money(d / 100); el.className = 'x-diff'; hint.textContent = 'კლიენტმა უნდა დაამატოს'; }
+  else if (d < 0) { el.textContent = money(d / 100); el.className = 'x-diff neg'; hint.textContent = 'კლიენტს უნდა დაუბრუნდეს'; }
+  else { el.textContent = money(0); el.className = 'x-diff zero'; hint.textContent = 'სხვაობა არ არის'; }
+  $('#x-paybox').style.display = d ? '' : 'none';
+  document.querySelectorAll('#xpay button').forEach(b => b.classList.toggle('on', b.dataset.xpay === payment));
+  $('#x-go').disabled = d === null || !xs.ret.saleId;
+}
+for (const slot of ['ret', 'new']) {
+  const inp = $('#xs-' + slot), box = $('#xr-' + slot); let t;
+  inp.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(async () => {
+      const q = inp.value.trim();
+      if (!q) { box.innerHTML = ''; return; }
+      try {
+        xList[slot] = await api('/api/products?q=' + encodeURIComponent(q));
+        box.innerHTML = xList[slot].length
+          ? xList[slot].slice(0, 8).map((p, i) => `<button type="button" class="x-res" data-i="${i}"><b>${esc(p.name)}</b><span>${esc(p.category)} · ${money(p.price)}</span></button>`).join('')
+          : '<div class="empty">პროდუქტი ვერ მოიძებნა</div>';
+      } catch (e) {}
+    }, 150);
+  });
+  box.addEventListener('click', e => {
+    const b = e.target.closest('.x-res'); if (!b) return;
+    xPick(slot, xList[slot][b.dataset.i]); inp.value = ''; box.innerHTML = '';
+  });
+}
+$('#page-exchange').addEventListener('change', e => {
+  const sz = e.target.closest('[data-xsize]'), pr = e.target.closest('[data-xprice]'), un = e.target.closest('[data-xunit]');
+  if (un) {
+    const u = xs.ret.units.find(z => String(z.id) === un.value);
+    xs.ret.saleId = u ? u.id : null; xs.ret.size = u ? u.size : ''; xs.ret.price = u ? u.price : 0;
+  }
+  if (sz) xs[sz.dataset.xsize].size = sz.value.trim().toUpperCase();
+  if (pr) xs[pr.dataset.xprice].price = parseFloat(pr.value) || 0;
+  xRender();
+});
+$('#page-exchange').addEventListener('click', e => {
+  const c = e.target.closest('[data-xclear]'); if (c) { xs[c.dataset.xclear] = null; xMsg(''); xRender(); $('#xscan').focus(); }
+});
+$('#xscan').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const code = e.target.value.trim(); e.target.value = '';
+  if (code) xScan(code);
+});
+$('#xpay').addEventListener('click', async e => {
+  const b = e.target.closest('[data-xpay]'); if (!b) return;
+  payment = b.dataset.xpay; renderPay(); xRender(); xMsg('');
+  try { await api('/api/settings', {method: 'PUT', body: {payment}}); } catch (err) { xMsg(err.message, 'err'); }
+});
+$('#x-go').onclick = async () => {
+  const d = xDiffCents(); if (d === null) return;
+  if (!xs.ret.saleId) { xMsg('აირჩიე, რომელი გაყიდული ნივთი ბრუნდება', 'err'); return; }
+  if (!xs.new.size) { xMsg('აირჩიე ახალი ნივთის ზომა', 'err'); return; }
+  if (d && !payment) { xMsg('აირჩიე ანგარიშწორების საშუალება', 'err'); return; }
+  const line = d > 0 ? `კლიენტი დაამატებს ${money(d / 100)} (${PAY[payment]})`
+             : d < 0 ? `კლიენტს უბრუნდება ${money(-d / 100)} (${PAY[payment]})` : 'სხვაობა არ არის';
+  if (!await askConfirm(`${xs.ret.p.name} (${xs.ret.size}) → ${xs.new.p.name} (${xs.new.size}). ${line}. დარწმუნებული ხარ?`)) return;
+  try {
+    const r = await api('/api/exchange', {method: 'POST', body: {
+      return: {sale_id: xs.ret.saleId},
+      new: {product_id: xs.new.p.id, size: xs.new.size, price: xs.new.price}, payment}});
+    xs.ret = xs.new = null; xRender();
+    xMsg(r.diff ? `გადაცვლა შესრულდა ✓ დღიურ ნავაჭრში დაემატა ${r.diff > 0 ? '+' : ''}${money(r.diff)}` : 'გადაცვლა შესრულდა ✓', 'ok');
+  } catch (err) { xMsg(err.message, 'err'); }
+  $('#xscan').focus();
+};
+xRender();
+
+/* ---------- QR scanner handling ----------
+   A scanner behaves like a very fast keyboard. It is recognised by speed: 3+ characters, each
+   arriving less than SCAN_GAP ms after the previous one. Where the code goes:
+   - "დაასკანერე QR კოდი აქ" field (მთავარი)  -> normal typing, works as before
+   - პროდუქტის დამატება window open           -> ONLY into the "QR კოდი" field
+   - any other dialog open                    -> ignored
+   - გადაცვლა page                            -> the scan goes to the exchange
+   - anywhere else (other page, other field)  -> nothing is typed there; the app switches to
+                                                 მთავარი and scans the product there            */
+const SCAN_GAP = 50, SCAN_MIN = 4;
+const sb = {buf: '', n: 0, last: 0, active: false, restored: false, target: null, startValue: null, timer: null};
+const addOpen = () => $('#add-modal').classList.contains('show');
+const dialogOpen = () => !!document.querySelector('#confirm-modal.show, #qty-modal.show, #sum-modal.show');
+const exchangeOpen = () => $('#page-exchange').classList.contains('active');
+function isScanField(t) {
+  if (addOpen()) return t === $('#f-qr');
+  return !dialogOpen() && t === (exchangeOpen() ? $('#xscan') : $('#scan'));
+}
+function scanReset() {
+  clearTimeout(sb.timer);
+  sb.buf = ''; sb.n = 0; sb.active = false; sb.restored = false; sb.target = null; sb.startValue = null;
+}
+function scanRestore() {            // undo the first characters that were typed before we knew it was a scanner
+  if (sb.restored) return;
+  sb.restored = true;
+  const t = sb.target;
+  if (t && sb.startValue !== null && t.value !== sb.startValue) {
+    t.value = sb.startValue;
+    t.dispatchEvent(new Event(t.tagName === 'SELECT' ? 'change' : 'input', {bubbles: true}));
+  }
+}
+function scanDone() {
+  const code = sb.buf.trim();
+  scanRestore(); scanReset();
+  if (!code) return;
+  if (addOpen()) { const f = $('#f-qr'); f.value = code; f.focus(); return; }
+  if (dialogOpen()) return;
+  if (exchangeOpen()) { $('#xscan').focus(); xScan(code); return; }
+  if (!$('#page-main').classList.contains('active')) show('main');
+  $('#scan').focus();
+  processScan(code);
+}
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (['Shift', 'CapsLock', 'Control', 'Alt', 'Meta', 'AltGraph'].includes(e.key)) return;
+  if (isScanField(e.target)) { scanReset(); return; }
+  const isEnter = e.key === 'Enter';
+  if (e.key.length !== 1 && !isEnter) { scanReset(); return; }      // Tab, arrows, Backspace... = a human
+  const now = performance.now(), fast = sb.n > 0 && now - sb.last <= SCAN_GAP;
+  sb.last = now;
+  if (isEnter) {
+    if (sb.active || (fast && sb.n >= 3)) { e.preventDefault(); e.stopPropagation(); scanDone(); }
+    else scanReset();
+    return;
+  }
+  if (!fast) { scanReset(); sb.target = e.target; sb.startValue = (e.target && 'value' in e.target) ? e.target.value : null; }
+  sb.buf += e.key; sb.n++;
+  if (!sb.active && sb.n >= SCAN_MIN) { sb.active = true; scanRestore(); }
+  if (sb.active) { e.preventDefault(); e.stopPropagation(); }
+  clearTimeout(sb.timer);
+  sb.timer = setTimeout(() => (sb.active ? scanDone() : scanReset()), 150);   // scanners without an Enter suffix
+}, true);
+
+renderCart(); loadSettings(); $('#scan').focus();
+</script>
+</body>
+</html>
